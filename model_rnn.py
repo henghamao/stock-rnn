@@ -9,8 +9,9 @@ import shutil
 import time
 import tensorflow as tf
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
 from tensorflow.contrib.tensorboard.plugins import projector
 
 

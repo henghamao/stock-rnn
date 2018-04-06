@@ -24,7 +24,6 @@ SP500_LIST_PATH = os.path.join(DATA_DIR, "constituents-financials.csv")
 def _download_sp500_list():
     if os.path.exists(SP500_LIST_PATH):
         return
-
     f = urllib2.urlopen(SP500_LIST_URL)
     print "Downloading ...", SP500_LIST_URL
     with open(SP500_LIST_PATH, 'w') as fin:
@@ -35,7 +34,7 @@ def _download_sp500_list():
 def _load_symbols():
     _download_sp500_list()
     df_sp500 = pd.read_csv(SP500_LIST_PATH)
-    df_sp500.sort('Market Cap', ascending=False, inplace=True)
+    df_sp500.sort_values('Market Cap', ascending=False, inplace=True)
     stock_symbols = df_sp500['Symbol'].unique().tolist()
     print "Loaded %d stock symbols" % len(stock_symbols)
     return stock_symbols
