@@ -27,7 +27,12 @@ class StockDataSet(object):
 
         # Merge into one sequence
         if close_price_only:
-            self.raw_seq = raw_df['Close'].tolist()
+            if 'Close' in raw_df:
+                self.raw_seq = raw_df['Close'].tolist()
+            elif 'close' in raw_df:
+                self.raw_seq = raw_df['close'].tolist()
+            else:
+                raise Exception('Not valid close price in data ' + os.path.join("data", "%s.csv" % stock_sym))
         else:
             self.raw_seq = [price for tup in raw_df[['Open', 'Close']].values for price in tup]
 
