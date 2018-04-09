@@ -20,7 +20,6 @@ class dlshare():
         else:
             # 深圳股票
             symbol = symbol + ".sz"
-        print (symbol)
         return self.web.DataReader(symbol, 'yahoo', start, end)
 
 def _get_data(symbol='sh',start='',end=''):
@@ -50,6 +49,7 @@ def _get_data(symbol='sh',start='',end=''):
             if df is None:
                 print ("Warning: %s data is empty"%s)
             p = os.path.join(DATA_DIR, s + ".csv")
+            df.to_csv(p)
             loop += 1
             if loop % 10 == 0:
                 print ("Download progress: %d/%d" % (loop, count))
