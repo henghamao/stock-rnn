@@ -26,8 +26,9 @@ class dlshare():
 def _get_data(symbol='sh',start='',end=''):
     PATH = os.path.join(DATA_DIR, symbol + ".csv")
     dl = dlshare()
-    if os.path.exists(PATH):
+    if os.path.exists(PATH) and (symbol != 'ALL'):
         # the data already existed, pull the new data
+        print ('The data already existed, exit.')
         return
 
     if start == '' or end == '':
@@ -44,7 +45,8 @@ def _get_data(symbol='sh',start='',end=''):
         count = len(stocks)
         loop = 0
         for s in stocks:
-            df = dl.get_hist_data(s, start, end)
+            # df = dl.get_hist_data(s, start, end)
+            df = ts.get_k_data(s, start, end)
             if df is None:
                 print ("Warning: %s data is empty"%s)
             p = os.path.join(DATA_DIR, s + ".csv")
@@ -52,7 +54,8 @@ def _get_data(symbol='sh',start='',end=''):
             if loop % 10 == 0:
                 print ("Download progress: %d/%d" % (loop, count))
     else:
-        df = dl.get_hist_data(symbol, start, end)
+        # df = dl.get_hist_data(symbol, start, end)
+        df = ts.get_k_data(symbol, start, end)
         df.to_csv(PATH)
 
 def main(argv):
