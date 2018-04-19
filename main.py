@@ -103,8 +103,7 @@ def main(_):
         if FLAGS.train:
             rnn_model.train(stock_data_list, FLAGS)
         else:
-            if not rnn_model.load()[0]:
-                raise Exception("[!] Train a model first, then run test mode")
+            rnn_model.predict(stock_data_list, FLAGS)
 
 
 if __name__ == '__main__':

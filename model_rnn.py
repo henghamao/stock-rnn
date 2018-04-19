@@ -135,6 +135,61 @@ class LstmRNN(object):
         self.t_vars = tf.trainable_variables()
         self.saver = tf.train.Saver()
 
+    def predict(self, dataset_list, config):
+        #
+        # Note: for single stock only
+        #
+        if not self.load()[0]:
+            raise Exception("[!] Train a model first, then run test mode")
+        print ("Predict with the trained model.")
+
+        # Merged test data of different stocks.
+        merged_predict_X = []
+        merged_predict_y = []
+        merged_predict_labels = []
+
+        for label_, d_ in enumerate(dataset_list):
+            merged_predict_X += list(d_.train_X) + list(d_.test_X)
+            merged_predict_y += list(d_.train_y) + list(d_.test_y)
+            merged_predict_labels += [[label_]] * (len(d_.test_X) + len(d_.train_X))
+
+        merged_predict_X = np.array(merged_predict_X)
+        merged_predict_y = np.array(merged_predict_y)
+        merged_predict_labels = np.array(merged_predict_labels)
+
+        print("len(merged_predict_X) =", len(merged_predict_X))
+        print("len(merged_predict_y) =", len(merged_predict_y))
+        print("len(merged_predict_labels) =", len(merged_predict_labels))
+
+        test_data_feed = {
+            self.learning_rate: 0.0,
+            self.keep_prob: 1.0,
+            self.inputs: merged_predict_X,
+            self.targets: merged_predict_y,
+            self.symbols: merged_predict_labels,
+        }
+
+        final_pred, final_loss = self.sess.run([self.pred, self.loss], test_data_feed)
+
+        print("Stock %s,  Final loss: %f, Predict: %f"%(dataset_list[0].stock_sym, final_loss, final_pred[-1][0]))
+
+        num_steps = dataset_list[0].num_steps
+        dl = dataset_list[0]
+        dl.predict_seq = np.append(dl.raw_seq[0:num_steps] , np.array([dl.raw_seq[i + num_steps]*(1 + final_pred[i]) for i in range(len(final_pred))]))
+        image_path = os.path.join(self.model_plots_dir, dl.stock_sym + "_raw.png")
+        self.plot_final(dl.predict_seq.tolist(), dl.raw_seq.tolist(), image_path, stock_sym=dl.stock_sym)
+
+        if dataset_list[0].normalized:
+            truth = [dl.raw_seq[0] / dl.raw_seq[0] - 1.0] + [
+                curr / dl.raw_seq[i] - 1.0 for i, curr in enumerate(dl.raw_seq[1:])]
+            # skip 1st num_steps
+            truth = truth[num_steps + 1:]
+            predict = self._flatten(final_pred)[0:-1]
+            image_path = os.path.join(self.model_plots_dir,dl.stock_sym + "_normalized.png")
+            self.plot_final(predict, truth, image_path, stock_sym=dl.stock_sym)
+
+        return final_pred[-1][0]
+
     def train(self, dataset_list, config):
         """
         Args:
@@ -196,6 +251,7 @@ class LstmRNN(object):
         global_step = 0
 
         num_batches = sum(len(d_.train_X) for d_ in dataset_list) // config.batch_size
+
         random.seed(time.time())
 
         # Select samples for plotting.
@@ -252,6 +308,8 @@ class LstmRNN(object):
 
         # Save the final model
         self.save(global_step)
+        print (final_pred)
+        print (final_loss)
         return final_pred
 
     @property
@@ -300,13 +358,32 @@ class LstmRNN(object):
             print(" [*] Failed to find a checkpoint")
             return False, 0
 
-    def plot_samples(self, preds, targets, figname, stock_sym=None, multiplier=5):
-        def _flatten(seq):
-            return np.array([x for y in seq for x in y])
+    def _flatten(self, seq):
+         return np.array([x for y in seq for x in y])
 
-        truths = _flatten(targets)[-200:]
-        preds = (_flatten(preds) * multiplier)[-200:]
+    def plot_samples(self, preds, targets, figname, stock_sym=None, multiplier=5):
+
+        truths = self._flatten(targets)[-200:]
+        preds = (self._flatten(preds) * multiplier)[-200:]
         days = range(len(truths))[-200:]
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(days, truths, label='truth')
+        plt.plot(days, preds, label='pred')
+        plt.legend(loc='upper left', frameon=False)
+        plt.xlabel("day")
+        plt.ylabel("normalized price")
+        plt.ylim((min(truths), max(truths)))
+        plt.grid(ls='--')
+
+        if stock_sym:
+            plt.title(stock_sym + " | Last %d days in test" % len(truths))
+
+        plt.savefig(figname, format='png', bbox_inches='tight', transparent=True)
+        plt.close()
+
+    def plot_final(self, preds, truths, figname, stock_sym=None, multiplier=5):
+        days = range(len(truths))
 
         plt.figure(figsize=(12, 6))
         plt.plot(days, truths, label='truth')
