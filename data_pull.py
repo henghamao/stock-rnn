@@ -70,7 +70,7 @@ def main(argv):
     start = ''
     end = ''
     try:
-        opts, args = getopt.getopt(argv, "c:s:e", ["stock_code=", "start_date=","end_date="])
+        opts, args = getopt.getopt(argv, "c:s:e:", ["stock_code=", "start_date=","end_date="])
     except getopt.GetoptError:
         print ('Error command! data_pull.py -c <stock_code> -s <start_date> -e <end_date>')
         sys.exit(2)
