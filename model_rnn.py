@@ -112,8 +112,8 @@ class LstmRNN(object):
         val = tf.transpose(val, [1, 0, 2])
 
         last = tf.gather(val, int(val.get_shape()[0]) - 1, name="lstm_state")
-        ws = tf.Variable(tf.truncated_normal([self.lstm_size, self.input_size]), name="w")
-        bias = tf.Variable(tf.constant(0.1, shape=[self.input_size]), name="b")
+        ws = tf.Variable(tf.truncated_normal([self.lstm_size, 1]), name="w")
+        bias = tf.Variable(tf.constant(0.1, shape=[1]), name="b")
         self.pred = tf.matmul(last, ws) + bias
 
         self.last_sum = tf.summary.histogram("lstm_state", last)
@@ -181,8 +181,8 @@ class LstmRNN(object):
         self.plot_final(dl.predict_seq.tolist(), price_seq.tolist(), image_path, stock_sym=dl.stock_sym)
 
         if dataset_list[0].normalized:
-            truth = [dl.raw_seq[0] / dl.raw_seq[0] - 1.0] + [
-                curr / dl.raw_seq[i] - 1.0 for i, curr in enumerate(dl.raw_seq[1:])]
+            truth = [price_seq[0] / price_seq[0] - 1.0] + [
+                curr / price_seq[i] - 1.0 for i, curr in enumerate(price_seq[1:])]
             # skip 1st num_steps
             truth = truth[num_steps + 1:]
             predict = self._flatten(final_pred)[0:-1]
