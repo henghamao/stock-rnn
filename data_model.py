@@ -10,11 +10,12 @@ random.seed(time.time())
 class StockDataSet(object):
     def __init__(self,
                  stock_sym,
-                 input_size=1,
+                 input_size=2,
                  num_steps=30,
                  test_ratio=0.1,
                  normalized=True,
-                 close_price_only=True):
+                 close_price_only=True,
+                 volume=True):
         self.stock_sym = stock_sym
         self.input_size = input_size
         self.num_steps = num_steps
@@ -26,7 +27,9 @@ class StockDataSet(object):
         raw_df = pd.read_csv(os.path.join("data", "%s.csv" % stock_sym))
 
         # Merge into one sequence
-        if close_price_only:
+        if volume and self.input_size == 2:
+            self.raw_seq = [price for tup in raw_df[['close', 'volume']].values for price in tup]
+        elif close_price_only:
             if 'Close' in raw_df:
                 self.raw_seq = raw_df['Close'].tolist()
             elif 'close' in raw_df:
@@ -49,12 +52,15 @@ class StockDataSet(object):
                for i in range(len(seq) // self.input_size)]
 
         if self.normalized:
-            seq = [seq[0] / seq[0][0] - 1.0] + [
-                curr / seq[i][-1] - 1.0 for i, curr in enumerate(seq[1:])]
+            seq = [seq[0] / seq[0] - 1.0] + [
+                curr / seq[i] - 1.0 for i, curr in enumerate(seq[1:])]
 
         # split into groups of num_steps
         X = np.array([seq[i: i + self.num_steps] for i in range(len(seq) - self.num_steps)])
-        y = np.array([seq[i + self.num_steps] for i in range(len(seq) - self.num_steps)])
+        if self.input_size > 1:
+            y = np.array([np.array([seq[i + self.num_steps][0]]) for i in range(len(seq) - self.num_steps)])
+        else:
+            y = np.array([seq[i + self.num_steps] for i in range(len(seq) - self.num_steps)])
 
         train_size = int(len(X) * (1.0 - self.test_ratio))
         train_X, test_X = X[:train_size], X[train_size:]

@@ -71,7 +71,7 @@ class LstmRNN(object):
         self.symbols = tf.placeholder(tf.int32, [None, 1], name='stock_labels')
 
         self.inputs = tf.placeholder(tf.float32, [None, self.num_steps, self.input_size], name="inputs")
-        self.targets = tf.placeholder(tf.float32, [None, self.input_size], name="targets")
+        self.targets = tf.placeholder(tf.float32, [None, 1], name="targets")
 
         def _create_one_cell():
             lstm_cell = tf.contrib.rnn.LSTMCell(self.lstm_size, state_is_tuple=True)
@@ -173,11 +173,12 @@ class LstmRNN(object):
 
         print("Stock %s,  Final loss: %f, Predict: %f"%(dataset_list[0].stock_sym, final_loss, final_pred[-1][0]))
 
-        num_steps = dataset_list[0].num_steps
         dl = dataset_list[0]
-        dl.predict_seq = np.append(dl.raw_seq[0:num_steps] , np.array([dl.raw_seq[i + num_steps]*(1 + final_pred[i]) for i in range(len(final_pred))]))
+        num_steps = dl.num_steps
+        price_seq = dl.raw_seq[::dl.input_size]
+        dl.predict_seq = np.append(price_seq[0:num_steps] , np.array([price_seq[i + num_steps]*(1 + final_pred[i]) for i in range(len(final_pred))]))
         image_path = os.path.join(self.model_plots_dir, dl.stock_sym + "_raw.png")
-        self.plot_final(dl.predict_seq.tolist(), dl.raw_seq.tolist(), image_path, stock_sym=dl.stock_sym)
+        self.plot_final(dl.predict_seq.tolist(), price_seq.tolist(), image_path, stock_sym=dl.stock_sym)
 
         if dataset_list[0].normalized:
             truth = [dl.raw_seq[0] / dl.raw_seq[0] - 1.0] + [

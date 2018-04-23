@@ -10,8 +10,8 @@ from model_rnn import LstmRNN
 
 flags = tf.app.flags
 flags.DEFINE_integer("stock_count", 100, "Stock count [100]")
-flags.DEFINE_integer("input_size", 1, "Input size [1]")
-flags.DEFINE_integer("num_steps", 30, "Num of steps [30]")
+flags.DEFINE_integer("input_size", 2, "Input size [2]")
+flags.DEFINE_integer("num_steps", 5, "Num of steps [5]")
 flags.DEFINE_integer("num_layers", 1, "Num of layer [1]")
 flags.DEFINE_integer("lstm_size", 128, "Size of one LSTM cell [128]")
 flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
