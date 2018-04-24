@@ -10,12 +10,11 @@ random.seed(time.time())
 class StockDataSet(object):
     def __init__(self,
                  stock_sym,
-                 input_size=2,
+                 input_size=4,
                  num_steps=30,
                  test_ratio=0.1,
                  normalized=True,
-                 close_price_only=True,
-                 volume=True):
+                 close_price_only=True):
         self.stock_sym = stock_sym
         self.input_size = input_size
         self.num_steps = num_steps
@@ -25,19 +24,22 @@ class StockDataSet(object):
 
         # Read csv file
         raw_df = pd.read_csv(os.path.join("data", "%s.csv" % stock_sym))
+        raw_df.columns = [x.lower() for x in raw_df.columns]
+        if not 'close' in raw_df:
+            raise Exception('Not valid close price in data ' + os.path.join("data", "%s.csv" % stock_sym))
 
         # Merge into one sequence
-        if volume and self.input_size == 2:
+        if self.input_size == 4:
+            # Extract features: Close price, High, Low, Volume
+            self.raw_seq = [price for tup in raw_df[['close', 'high', 'low', 'volume']].values for price in tup]
+        elif self.input_size == 2:
+            # Extract features: Close price, Volume
             self.raw_seq = [price for tup in raw_df[['close', 'volume']].values for price in tup]
-        elif close_price_only:
-            if 'Close' in raw_df:
-                self.raw_seq = raw_df['Close'].tolist()
-            elif 'close' in raw_df:
-                self.raw_seq = raw_df['close'].tolist()
-            else:
-                raise Exception('Not valid close price in data ' + os.path.join("data", "%s.csv" % stock_sym))
+        elif self.input_size == 1:
+            # Extract feature: Close price
+            self.raw_seq = raw_df['close'].tolist()
         else:
-            self.raw_seq = [price for tup in raw_df[['Open', 'Close']].values for price in tup]
+             raise Exception('Not valid input_size:%d'%self.input_size)
 
         self.raw_seq = np.array(self.raw_seq)
         self.train_X, self.train_y, self.test_X, self.test_y = self._prepare_data(self.raw_seq)
@@ -52,8 +54,16 @@ class StockDataSet(object):
                for i in range(len(seq) // self.input_size)]
 
         if self.normalized:
-            seq = [seq[0] / seq[0] - 1.0] + [
-                curr / seq[i] - 1.0 for i, curr in enumerate(seq[1:])]
+            if self.input_size == 1 or self.input_size == 2:
+                # Close price or Close Prices, Volume
+                seq = [seq[0] / seq[0] - 1.0] + [
+                    curr / seq[i] - 1.0 for i, curr in enumerate(seq[1:])]
+            elif self.input_size == 4:
+                # Close/Close, High/Close, Low/Close, Volume/Volume
+                seq = [seq[0] / seq[0] - 1.0] + \
+                      [[curr[0] / seq[i][0] - 1.0, curr[1] / seq[i][0] - 1.0, curr[2] / seq[i][0] - 1.0, curr[3] / seq[i][3] - 1.0] for i, curr in enumerate(seq[1:])]
+            else:
+                raise Exception('Not valid input_size:%d' % self.input_size)
 
         # split into groups of num_steps
         X = np.array([seq[i: i + self.num_steps] for i in range(len(seq) - self.num_steps)])
