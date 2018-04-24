@@ -147,49 +147,47 @@ class LstmRNN(object):
         merged_predict_X = []
         merged_predict_y = []
         merged_predict_labels = []
+        result = dict()
 
         for label_, d_ in enumerate(dataset_list):
-            merged_predict_X += list(d_.train_X) + list(d_.test_X)
-            merged_predict_y += list(d_.train_y) + list(d_.test_y)
-            merged_predict_labels += [[label_]] * (len(d_.test_X) + len(d_.train_X))
+            merged_predict_X = np.array(list(d_.train_X) + list(d_.test_X))
+            merged_predict_y = np.array(list(d_.train_y) + list(d_.test_y))
+            merged_predict_labels = np.array([[label_]] * (len(d_.test_X) + len(d_.train_X)))
 
-        merged_predict_X = np.array(merged_predict_X)
-        merged_predict_y = np.array(merged_predict_y)
-        merged_predict_labels = np.array(merged_predict_labels)
+            print("Predict for stock:%s"%d_.stock_sym)
+            print("len(merged_predict_X) =", len(merged_predict_X))
+            print("len(merged_predict_y) =", len(merged_predict_y))
+            print("len(merged_predict_labels) =", len(merged_predict_labels))
 
-        print("len(merged_predict_X) =", len(merged_predict_X))
-        print("len(merged_predict_y) =", len(merged_predict_y))
-        print("len(merged_predict_labels) =", len(merged_predict_labels))
+            test_data_feed = {
+                self.learning_rate: 0.0,
+                self.keep_prob: 1.0,
+                self.inputs: merged_predict_X,
+                self.targets: merged_predict_y,
+                self.symbols: merged_predict_labels,
+            }
 
-        test_data_feed = {
-            self.learning_rate: 0.0,
-            self.keep_prob: 1.0,
-            self.inputs: merged_predict_X,
-            self.targets: merged_predict_y,
-            self.symbols: merged_predict_labels,
-        }
+            final_pred, final_loss = self.sess.run([self.pred, self.loss], test_data_feed)
+            print("Stock %s,  Final loss: %f, Predict: %f"%(d_.stock_sym, final_loss, final_pred[-1][0]))
+            result[d_.stock_sym] = final_pred[-1][0]
 
-        final_pred, final_loss = self.sess.run([self.pred, self.loss], test_data_feed)
+            dl = d_
+            num_steps = dl.num_steps
+            price_seq = dl.raw_seq[::dl.input_size]
+            dl.predict_seq = np.append(price_seq[0:num_steps] , np.array([price_seq[i + num_steps]*(1 + final_pred[i]) for i in range(len(final_pred))]))
+            image_path = os.path.join(self.model_plots_dir, dl.stock_sym + "_raw.png")
+            self.plot_final(dl.predict_seq.tolist(), price_seq.tolist(), image_path, stock_sym=dl.stock_sym)
 
-        print("Stock %s,  Final loss: %f, Predict: %f"%(dataset_list[0].stock_sym, final_loss, final_pred[-1][0]))
-
-        dl = dataset_list[0]
-        num_steps = dl.num_steps
-        price_seq = dl.raw_seq[::dl.input_size]
-        dl.predict_seq = np.append(price_seq[0:num_steps] , np.array([price_seq[i + num_steps]*(1 + final_pred[i]) for i in range(len(final_pred))]))
-        image_path = os.path.join(self.model_plots_dir, dl.stock_sym + "_raw.png")
-        self.plot_final(dl.predict_seq.tolist(), price_seq.tolist(), image_path, stock_sym=dl.stock_sym)
-
-        if dataset_list[0].normalized:
-            truth = [price_seq[0] / price_seq[0] - 1.0] + [
-                curr / price_seq[i] - 1.0 for i, curr in enumerate(price_seq[1:])]
-            # skip 1st num_steps
-            truth = truth[num_steps + 1:]
-            predict = self._flatten(final_pred)[0:-1]
-            image_path = os.path.join(self.model_plots_dir,dl.stock_sym + "_normalized.png")
-            self.plot_final(predict, truth, image_path, stock_sym=dl.stock_sym)
-
-        return final_pred[-1][0]
+            if dl.normalized:
+                truth = [price_seq[0] / price_seq[0] - 1.0] + [
+                    curr / price_seq[i] - 1.0 for i, curr in enumerate(price_seq[1:])]
+                # skip 1st num_steps
+                truth = truth[num_steps + 1:]
+                predict = self._flatten(final_pred)[0:-1]
+                image_path = os.path.join(self.model_plots_dir,dl.stock_sym + "_normalized.png")
+                self.plot_final(predict, truth, image_path, stock_sym=dl.stock_sym)
+        print(result)
+        return
 
     def train(self, dataset_list, config):
         """
