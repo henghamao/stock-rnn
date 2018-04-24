@@ -43,6 +43,7 @@ class StockDataSet(object):
 
         self.raw_seq = np.array(self.raw_seq)
         self.train_X, self.train_y, self.test_X, self.test_y = self._prepare_data(self.raw_seq)
+        self.predict_x = self.predict_y = None
 
     def info(self):
         return "StockDataSet [%s] train: %d test: %d" % (
@@ -76,6 +77,35 @@ class StockDataSet(object):
         train_X, test_X = X[:train_size], X[train_size:]
         train_y, test_y = y[:train_size], y[train_size:]
         return train_X, train_y, test_X, test_y
+
+    def prepare_data_predict(self, seq):
+        # split into items of input_size
+        seq = [np.array(seq[i * self.input_size: (i + 1) * self.input_size])
+               for i in range(len(seq) // self.input_size)]
+
+        if self.normalized:
+            if self.input_size == 1 or self.input_size == 2:
+                # Close price or Close Prices, Volume
+                seq = [seq[0] / seq[0] - 1.0] + [
+                    curr / seq[i] - 1.0 for i, curr in enumerate(seq[1:])]
+            elif self.input_size == 4:
+                # Close/Close, High/Close, Low/Close, Volume/Volume
+                seq = [seq[0] / seq[0] - 1.0] + \
+                      [[curr[0] / seq[i][0] - 1.0, curr[1] / seq[i][0] - 1.0, curr[2] / seq[i][0] - 1.0, curr[3] / seq[i][3] - 1.0] for i, curr in enumerate(seq[1:])]
+            else:
+                raise Exception('Not valid input_size:%d' % self.input_size)
+
+        # split into groups of num_steps, +1 to add last step
+        X = np.array([seq[i: i + self.num_steps] for i in range(len(seq) - self.num_steps + 1)])
+        if self.input_size > 1:
+            y = np.array([np.array([seq[i + self.num_steps][0]]) for i in range(len(seq) - self.num_steps)])
+        else:
+            y = np.array([seq[i + self.num_steps] for i in range(len(seq) - self.num_steps)])
+
+        # Note, the size of X is 1 bigger than Y as including last element that does not have y value
+        self.predict_x = X
+        self.predict_y = y
+        return
 
     def generate_one_epoch(self, batch_size):
         num_batches = int(len(self.train_X)) // batch_size
