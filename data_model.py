@@ -14,7 +14,8 @@ class StockDataSet(object):
                  num_steps=30,
                  test_ratio=0.1,
                  normalized=True,
-                 close_price_only=True):
+                 close_price_only=True,
+                 interval=1):
         self.stock_sym = stock_sym
         self.input_size = input_size
         self.num_steps = num_steps
@@ -31,11 +32,14 @@ class StockDataSet(object):
         # Merge into one sequence
         if self.input_size == 4:
             # Extract features: Close price, High, Low, Volume
-            self.raw_seq = [price for tup in raw_df[['close', 'high', 'low', 'volume']].values for price in tup]
+            raw_seq = [[raw_df['close'][i+interval], max(raw_df['high'][i:i+interval]), min(raw_df['low'][i:i + interval]), sum(raw_df['volume'][i:i + interval])] for i in range(0, len(raw_df) - interval, interval)]
+            self.raw_seq = [x for y in raw_seq for x in y]
         elif self.input_size == 2:
             # Extract features: Close price, Volume
-            self.raw_seq = [price for tup in raw_df[['close', 'volume']].values for price in tup]
+            raw_seq = [[raw_df['close'][i+interval], sum(raw_df['volume'][i:i+interval])] for i in range(0,len(raw_df)-interval,interval)]
+            self.raw_seq = [x for y in raw_seq for x in y]
         elif self.input_size == 1:
+            raw_df = raw_df[::interval]
             # Extract feature: Close price
             self.raw_seq = raw_df['close'].tolist()
         else:

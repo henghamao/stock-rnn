@@ -22,8 +22,10 @@ class LstmRNN(object):
                  num_steps=30,
                  input_size=1,
                  embed_size=None,
+                 interval=1,
                  logs_dir="logs",
-                 plots_dir="images"):
+                 plots_dir="images"
+                 ):
         """
         Construct a RNN model using LSTM cell.
 
@@ -45,6 +47,7 @@ class LstmRNN(object):
         self.num_layers = num_layers
         self.num_steps = num_steps
         self.input_size = input_size
+        self.interval = interval
 
         self.use_embed = (embed_size is not None) and (embed_size > 0)
         self.embed_size = embed_size or -1
@@ -317,6 +320,8 @@ class LstmRNN(object):
 
     @property
     def model_name(self):
+        # name = "stock_rnn_lstm%d_step%d_input%d_interval%d" % (
+        #    self.lstm_size, self.num_steps, self.input_size, self.interval)
         name = "stock_rnn_lstm%d_step%d_input%d" % (
             self.lstm_size, self.num_steps, self.input_size)
 

@@ -12,6 +12,7 @@ flags = tf.app.flags
 flags.DEFINE_integer("stock_count", 100, "Stock count [100]")
 flags.DEFINE_integer("input_size", 2, "Input size [2]")
 flags.DEFINE_integer("num_steps", 5, "Num of steps [5]")
+flags.DEFINE_integer("day_interval", 1, "Pick day interval from data[1]")
 flags.DEFINE_integer("num_layers", 1, "Num of layer [1]")
 flags.DEFINE_integer("lstm_size", 128, "Size of one LSTM cell [128]")
 flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
@@ -24,6 +25,7 @@ flags.DEFINE_integer("embed_size", None, "If provided, use embedding vector of t
 flags.DEFINE_string("stock_symbol", None, "Target stock symbol [None]")
 flags.DEFINE_integer("sample_size", 4, "Number of stocks to plot during training. [4]")
 flags.DEFINE_boolean("train", False, "True for training, False for testing [False]")
+flags.DEFINE_integer("train_threshold", 20, "The min sample size requirement to feed the training")
 
 FLAGS = flags.FLAGS
 
@@ -37,14 +39,15 @@ def show_all_variables():
     model_vars = tf.trainable_variables()
     slim.model_analyzer.analyze_vars(model_vars, print_info=True)
 
-def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05):
+def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05, interval=1):
     if target_symbol is not None:
         return [
             StockDataSet(
                 target_symbol,
                 input_size=input_size,
                 num_steps=num_steps,
-                test_ratio=test_ratio)
+                test_ratio=test_ratio,
+                interval=interval)
         ]
 
     symbols = []
@@ -70,17 +73,19 @@ def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.
         StockDataSet(s,
                      input_size=input_size,
                      num_steps=num_steps,
-                     test_ratio=0.05)
+                     test_ratio=0.05,
+                     interval=interval)
         for s in symbols]
 
-def load_sp500(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05):
+def load_sp500(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05, interval=1):
     if target_symbol is not None:
         return [
             StockDataSet(
                 target_symbol,
                 input_size=input_size,
                 num_steps=num_steps,
-                test_ratio=test_ratio)
+                test_ratio=test_ratio,
+                interval=interval)
         ]
 
     # Load metadata of s & p 500 stocks
@@ -124,6 +129,7 @@ def main(_):
             num_steps=FLAGS.num_steps,
             input_size=FLAGS.input_size,
             embed_size=FLAGS.embed_size,
+            interval=FLAGS.day_interval
         )
 
         show_all_variables()
@@ -133,9 +139,18 @@ def main(_):
             FLAGS.num_steps,
             k=FLAGS.stock_count,
             target_symbol=FLAGS.stock_symbol,
+            interval=FLAGS.day_interval
         )
 
         if FLAGS.train:
+            num = FLAGS.train_threshold
+            for s in stock_data_list:
+                if len(s.raw_seq)//s.input_size < num:
+                    stock_data_list.remove(s)
+                    print ("Info: %s sample is too small, remove from training"%s.stock_sym)
+            if stock_data_list.__len__() == 0:
+                print ("No data to train.")
+                exit(-1)
             rnn_model.train(stock_data_list, FLAGS)
         else:
             rnn_model.predict(stock_data_list, FLAGS)
