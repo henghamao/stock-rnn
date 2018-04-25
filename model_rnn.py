@@ -172,7 +172,7 @@ class LstmRNN(object):
             final_pred = [final_pred[0][:-1]]
             num_steps = d_.num_steps
             price_seq = d_.raw_seq[::d_.input_size]
-            d_.predict_seq = np.append(price_seq[0:num_steps] , np.array([price_seq[i + num_steps]*(1 + final_pred[i]) for i in range(len(final_pred))]))
+            d_.predict_seq = np.append(price_seq[0:num_steps] , np.array([price_seq[i + num_steps]*(1 + final_pred[0][i]) for i in range(len(final_pred[0]))]))
             image_path = os.path.join(self.model_plots_dir, d_.stock_sym + "_raw.png")
             self.plot_final(d_.predict_seq.tolist(), price_seq.tolist(), image_path, stock_sym=d_.stock_sym)
 
@@ -180,11 +180,17 @@ class LstmRNN(object):
                 truth = [price_seq[0] / price_seq[0] - 1.0] + [
                     curr / price_seq[i] - 1.0 for i, curr in enumerate(price_seq[1:])]
                 # skip 1st num_steps
-                truth = truth[num_steps + 1:]
-                predict = self._flatten(final_pred)[0:-1]
+                truth = truth[num_steps:]
+                predict = self._flatten(final_pred)
                 image_path = os.path.join(self.model_plots_dir,d_.stock_sym + "_normalized.png")
                 self.plot_final(predict, truth, image_path, stock_sym=d_.stock_sym)
-        print(result)
+
+        # print(result)
+        # Choose top 10 results
+        print ("----------------------------")
+        for r in sorted(result.items(),key=lambda d:d[1], reverse = True)[0:10]:
+            print("stock code:%s, predict raise:%f"%(r[0],r[1]))
+
         return
 
     def train(self, dataset_list, config):

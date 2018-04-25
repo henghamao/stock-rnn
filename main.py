@@ -37,6 +37,41 @@ def show_all_variables():
     model_vars = tf.trainable_variables()
     slim.model_analyzer.analyze_vars(model_vars, print_info=True)
 
+def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05):
+    if target_symbol is not None:
+        return [
+            StockDataSet(
+                target_symbol,
+                input_size=input_size,
+                num_steps=num_steps,
+                test_ratio=test_ratio)
+        ]
+
+    symbols = []
+    file_black = ["_stock_list.csv","stock_list.csv", "constituents-financials.csv"]
+    # Load metadata
+    if os.path.exists("data/stock_list.csv"):
+        info = pd.read_csv("data/stock_list.csv")
+        info = info.rename(columns={col: col.lower().replace(' ', '_') for col in info.columns})
+        info['file_exists'] = info['symbol'].map(lambda x: os.path.exists("data/{}.csv".format(x)))
+        print (info['file_exists'].value_counts().to_dict())
+        info = info[info['file_exists'] == True].reset_index(drop=True)
+        symbols = info['symbol'].tolist()
+    else:
+        for root, dirs, files in os.walk("data/"):
+            for file in files:
+                if os.path.splitext(file)[1] == '.csv' and file not in file_black:
+                    symbols.append(os.path.splitext(file)[0])
+
+    if k is not None:
+        symbols = symbols[:k]
+
+    return [
+        StockDataSet(s,
+                     input_size=input_size,
+                     num_steps=num_steps,
+                     test_ratio=0.05)
+        for s in symbols]
 
 def load_sp500(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05):
     if target_symbol is not None:
@@ -93,7 +128,7 @@ def main(_):
 
         show_all_variables()
 
-        stock_data_list = load_sp500(
+        stock_data_list = load_stocks(
             FLAGS.input_size,
             FLAGS.num_steps,
             k=FLAGS.stock_count,
