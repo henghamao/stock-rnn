@@ -174,10 +174,10 @@ class LstmRNN(object):
             # skip the last future predicting element, for plotting graph
             final_pred = [final_pred[0][:-1]]
             num_steps = d_.num_steps
-            price_seq = d_.raw_seq[::d_.input_size]
+            price_seq = [d_.raw_seq[i][0] for i in range(len(d_.raw_seq))]
             d_.predict_seq = np.append(price_seq[0:num_steps] , np.array([price_seq[i + num_steps]*(1 + final_pred[0][i]) for i in range(len(final_pred[0]))]))
             image_path = os.path.join(self.model_plots_dir, d_.stock_sym + "_raw.png")
-            self.plot_final(d_.predict_seq.tolist(), price_seq.tolist(), image_path, stock_sym=d_.stock_sym)
+            self.plot_final(d_.predict_seq.tolist(), price_seq, image_path, stock_sym=d_.stock_sym)
 
             if d_.normalized:
                 truth = [price_seq[0] / price_seq[0] - 1.0] + [

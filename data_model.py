@@ -32,20 +32,18 @@ class StockDataSet(object):
         # Merge into one sequence
         if self.input_size == 4:
             # Extract features: Close price, High, Low, Volume
-            raw_seq = [[raw_df['close'][i+interval], max(raw_df['high'][i:i+interval]), min(raw_df['low'][i:i + interval]), sum(raw_df['volume'][i:i + interval])] for i in range(0, len(raw_df) - interval, interval)]
-            self.raw_seq = [x for y in raw_seq for x in y]
+            self.raw_seq = [[raw_df['close'][(i+1)*interval-1], max(raw_df['high'][i*interval:(i+1)*interval]),
+                             min(raw_df['low'][i*interval:(i+1)*interval]),sum(raw_df['volume'][i*interval:(i+1)*interval])] for i in range(len(raw_df) // interval)]
         elif self.input_size == 2:
             # Extract features: Close price, Volume
-            raw_seq = [[raw_df['close'][i+interval], sum(raw_df['volume'][i:i+interval])] for i in range(0,len(raw_df)-interval,interval)]
-            self.raw_seq = [x for y in raw_seq for x in y]
+            self.raw_seq = [[raw_df['close'][(i+1)*interval-1], sum(raw_df['volume'][i*interval:(i+1)*interval])] for i in range(len(raw_df) // interval)]
         elif self.input_size == 1:
-            raw_df = raw_df[::interval]
             # Extract feature: Close price
-            self.raw_seq = raw_df['close'].tolist()
+            self.raw_seq = raw_df[::interval]['close'].tolist()
+            self.raw_seq = [[l] for l in self.raw_seq]
         else:
              raise Exception('Not valid input_size:%d'%self.input_size)
 
-        self.raw_seq = np.array(self.raw_seq)
         self.train_X, self.train_y, self.test_X, self.test_y = self._prepare_data(self.raw_seq)
         self.predict_x = self.predict_y = None
 
@@ -54,9 +52,7 @@ class StockDataSet(object):
             self.stock_sym, len(self.train_X), len(self.test_y))
 
     def _prepare_data(self, seq):
-        # split into items of input_size
-        seq = [np.array(seq[i * self.input_size: (i + 1) * self.input_size])
-               for i in range(len(seq) // self.input_size)]
+        seq = np.array([np.array(seq[i]) for i in range(len(seq))])
 
         if self.normalized:
             if self.input_size == 1 or self.input_size == 2:
@@ -84,8 +80,7 @@ class StockDataSet(object):
 
     def prepare_data_predict(self, seq):
         # split into items of input_size
-        seq = [np.array(seq[i * self.input_size: (i + 1) * self.input_size])
-               for i in range(len(seq) // self.input_size)]
+        seq = np.array([np.array(seq[i]) for i in range(len(seq))])
 
         if self.normalized:
             if self.input_size == 1 or self.input_size == 2:

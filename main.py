@@ -10,7 +10,7 @@ from model_rnn import LstmRNN
 
 flags = tf.app.flags
 flags.DEFINE_integer("stock_count", 100, "Stock count [100]")
-flags.DEFINE_integer("input_size", 2, "Input size [2]")
+flags.DEFINE_integer("input_size", 4, "Input size [2]")
 flags.DEFINE_integer("num_steps", 5, "Num of steps [5]")
 flags.DEFINE_integer("day_interval", 1, "Pick day interval from data[1]")
 flags.DEFINE_integer("num_layers", 1, "Num of layer [1]")
