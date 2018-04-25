@@ -83,9 +83,11 @@ def main(argv):
         elif opt in ("-e", "--end_date"):
             end = arg
 
-    if start == '' or end == '':
-        # pull the recent 30 days by default
+    if end == '':
         end = datetime.date.today().strftime("%Y-%m-%d")
+
+    if start == '':
+        # pull the recent 30 days by default
         start = (datetime.date.today() - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
     print("Fetch stock code:" + symbol + ", Start date:" + start + " ， End date:" + end)
 
