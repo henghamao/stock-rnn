@@ -53,6 +53,7 @@ def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.
     symbols = []
     file_black = ["_stock_list.csv","stock_list.csv", "constituents-financials.csv"]
     # Load metadata
+    s = dict()
     if os.path.exists("data/stock_list.csv"):
         info = pd.read_csv("data/stock_list.csv")
         info = info.rename(columns={col: col.lower().replace(' ', '_') for col in info.columns})
@@ -64,7 +65,10 @@ def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.
         for root, dirs, files in os.walk("data/"):
             for file in files:
                 if os.path.splitext(file)[1] == '.csv' and file not in file_black:
-                    symbols.append(os.path.splitext(file)[0])
+                    s[os.path.splitext(file)[0]] = os.path.getsize("data/"+file)
+            # Order by file size (data samples)
+            symbols += sorted(s.items(), key=lambda d: d[1], reverse=True)
+        symbols = [symbols[i][0] for i in range(len(symbols))]
 
     if k is not None:
         symbols = symbols[:k]

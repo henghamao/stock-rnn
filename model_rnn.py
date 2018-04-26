@@ -165,6 +165,7 @@ class LstmRNN(object):
                 self.keep_prob: 1.0,
                 self.inputs: merged_predict_X,
                 self.targets: merged_predict_y,
+                self.symbols: np.array([[label_]]*len(merged_predict_X))
             }
 
             final_pred = self.sess.run([self.pred], test_data_feed)
