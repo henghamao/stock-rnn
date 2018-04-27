@@ -24,6 +24,7 @@ class StockDataSet(object):
         self.normalized = normalized
 
         # Read csv file
+        print ("Init data for stock %s" % stock_sym)
         raw_df = pd.read_csv(os.path.join("data", "%s.csv" % stock_sym))
         raw_df.columns = [x.lower() for x in raw_df.columns]
         if not 'close' in raw_df:

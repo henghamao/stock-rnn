@@ -157,6 +157,13 @@ def main(_):
                 exit(-1)
             rnn_model.train(stock_data_list, FLAGS)
         else:
+            for s in stock_data_list:
+                if len(s.raw_seq)//s.input_size < FLAGS.num_steps:
+                    stock_data_list.remove(s)
+                    print ("Info: %s sample is too small, less than num_step"%s.stock_sym)
+            if stock_data_list.__len__() == 0:
+                print ("No data to predict.")
+                exit(-1)
             rnn_model.predict(stock_data_list, FLAGS)
 
 
