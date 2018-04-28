@@ -39,7 +39,7 @@ def show_all_variables():
     model_vars = tf.trainable_variables()
     slim.model_analyzer.analyze_vars(model_vars, print_info=True)
 
-def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05, interval=1):
+def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05, interval=1, train=False):
     if target_symbol is not None:
         return [
             StockDataSet(
@@ -47,7 +47,8 @@ def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.
                 input_size=input_size,
                 num_steps=num_steps,
                 test_ratio=test_ratio,
-                interval=interval)
+                interval=interval,
+                train=train)
         ]
 
     symbols = []
@@ -78,7 +79,8 @@ def load_stocks(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.
                      input_size=input_size,
                      num_steps=num_steps,
                      test_ratio=0.05,
-                     interval=interval)
+                     interval=interval,
+                     train=train)
         for s in symbols]
 
 def load_sp500(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.05, interval=1):
@@ -143,13 +145,13 @@ def main(_):
             FLAGS.num_steps,
             k=FLAGS.stock_count,
             target_symbol=FLAGS.stock_symbol,
-            interval=FLAGS.day_interval
+            interval=FLAGS.day_interval,
+            train=FLAGS.train
         )
 
         if FLAGS.train:
-            num = FLAGS.train_threshold
             for s in stock_data_list:
-                if len(s.raw_seq)//s.input_size < num:
+                if len(s.raw_seq) < FLAGS.train_threshold * FLAGS.num_steps:
                     stock_data_list.remove(s)
                     print ("Info: %s sample is too small, remove from training"%s.stock_sym)
             if stock_data_list.__len__() == 0:
@@ -158,7 +160,7 @@ def main(_):
             rnn_model.train(stock_data_list, FLAGS)
         else:
             for s in stock_data_list:
-                if len(s.raw_seq)//s.input_size < FLAGS.num_steps:
+                if len(s.raw_seq) < FLAGS.num_steps:
                     stock_data_list.remove(s)
                     print ("Info: %s sample is too small, less than num_step"%s.stock_sym)
             if stock_data_list.__len__() == 0:

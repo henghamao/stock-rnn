@@ -15,7 +15,8 @@ class StockDataSet(object):
                  test_ratio=0.1,
                  normalized=True,
                  close_price_only=True,
-                 interval=1):
+                 interval=1,
+                 train=True):
         self.stock_sym = stock_sym
         self.input_size = input_size
         self.num_steps = num_steps
@@ -45,8 +46,13 @@ class StockDataSet(object):
         else:
              raise Exception('Not valid input_size:%d'%self.input_size)
 
-        self.train_X, self.train_y, self.test_X, self.test_y = self._prepare_data(self.raw_seq)
-        self.predict_x = self.predict_y = None
+        if train:
+            self.train_X, self.train_y, self.test_X, self.test_y = self._prepare_data(self.raw_seq)
+        else:
+            # Used last two samples only, to accelerate the predicting process
+            num = min(2*self.num_steps, len(self.raw_seq))
+            self.raw_seq = self.raw_seq[:num]
+            self._prepare_data_predict(self.raw_seq)
 
     def info(self):
         return "StockDataSet [%s] train: %d test: %d" % (
@@ -79,7 +85,7 @@ class StockDataSet(object):
         train_y, test_y = y[:train_size], y[train_size:]
         return train_X, train_y, test_X, test_y
 
-    def prepare_data_predict(self, seq):
+    def _prepare_data_predict(self, seq):
         # split into items of input_size
         seq = np.array([np.array(seq[i]) for i in range(len(seq))])
 

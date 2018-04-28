@@ -152,7 +152,6 @@ class LstmRNN(object):
         result = dict()
 
         for label_, d_ in enumerate(dataset_list):
-            d_.prepare_data_predict(d_.raw_seq)
             merged_predict_X = np.array(d_.predict_x)
             merged_predict_y = np.array(d_.predict_y)
 
