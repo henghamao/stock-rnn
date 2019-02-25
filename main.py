@@ -150,7 +150,7 @@ def main(_):
         )
 
         if FLAGS.train:
-            for s in stock_data_list:
+            for s in stock_data_list[:]:
                 if len(s.raw_seq) < FLAGS.train_threshold * FLAGS.num_steps:
                     stock_data_list.remove(s)
                     print ("Info: %s sample is too small, remove from training"%s.stock_sym)
@@ -159,7 +159,7 @@ def main(_):
                 exit(-1)
             rnn_model.train(stock_data_list, FLAGS)
         else:
-            for s in stock_data_list:
+            for s in stock_data_list[:]:
                 if len(s.raw_seq) < FLAGS.num_steps:
                     stock_data_list.remove(s)
                     print ("Info: %s sample is too small, less than num_step"%s.stock_sym)
