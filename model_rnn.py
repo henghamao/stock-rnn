@@ -8,12 +8,11 @@ import re
 import shutil
 import time
 import tensorflow as tf
-
+import shutil
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from tensorflow.contrib.tensorboard.plugins import projector
-
 
 class LstmRNN(object):
     def __init__(self, sess, stock_count,
@@ -314,6 +313,7 @@ class LstmRNN(object):
 
         # Save the final model
         self.save(global_step)
+        self.export()
         print (final_pred)
         print (final_loss)
         return final_pred
@@ -346,11 +346,58 @@ class LstmRNN(object):
 
     def save(self, step):
         model_name = self.model_name + ".model"
+        export_path = os.path.join(self.model_logs_dir, model_name)
         self.saver.save(
             self.sess,
-            os.path.join(self.model_logs_dir, model_name),
+            export_path,
             global_step=step
         )
+
+    def export(self):
+        model_name = self.model_name + ".model"
+        export_path = os.path.join(self.model_logs_dir, model_name)
+        if os.path.exists(export_path):
+            shutil.rmtree(export_path)
+
+        print('Exporting trained model to', export_path)
+        builder = tf.saved_model.builder.SavedModelBuilder(export_path)
+        # Build the signature_def_map.
+        classification_inputs = tf.saved_model.utils.build_tensor_info(self.inputs)
+        classification_outputs_classes = tf.saved_model.utils.build_tensor_info(self.targets)
+        classification_outputs_scores = tf.saved_model.utils.build_tensor_info(self.loss)
+
+        classification_signature = (
+            tf.saved_model.signature_def_utils.build_signature_def(
+                inputs={
+                    tf.saved_model.signature_constants.CLASSIFY_INPUTS:
+                        classification_inputs
+                },
+                outputs={
+                    tf.saved_model.signature_constants.CLASSIFY_OUTPUT_CLASSES:
+                        classification_outputs_classes,
+                    tf.saved_model.signature_constants.CLASSIFY_OUTPUT_SCORES:
+                        classification_outputs_scores
+                },
+                method_name=tf.saved_model.signature_constants.CLASSIFY_METHOD_NAME))
+
+        tensor_info_x = tf.saved_model.utils.build_tensor_info(self.inputs)
+        tensor_info_y = tf.saved_model.utils.build_tensor_info(self.targets)
+
+        prediction_signature = (
+            tf.saved_model.signature_def_utils.build_signature_def(
+                inputs={'stocks': tensor_info_x},
+                outputs={'pred': tensor_info_y},
+                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+        builder.add_meta_graph_and_variables(
+            self.sess, [tf.saved_model.tag_constants.SERVING],
+            signature_def_map={
+                'predict_images':
+                    prediction_signature,
+                tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
+                    classification_signature,
+            },
+            main_op=tf.tables_initializer())
+        builder.save()
 
     def load(self):
         print(" [*] Reading checkpoints...")
