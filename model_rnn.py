@@ -5,11 +5,10 @@ import numpy as np
 import os
 import random
 import re
-import shutil
-import time
 import tensorflow as tf
 import shutil
 import matplotlib
+import time
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from tensorflow.contrib.tensorboard.plugins import projector
@@ -23,7 +22,8 @@ class LstmRNN(object):
                  embed_size=None,
                  interval=1,
                  logs_dir="logs",
-                 plots_dir="images"
+                 plots_dir="images",
+                 models_dir="models"
                  ):
         """
         Construct a RNN model using LSTM cell.
@@ -53,6 +53,7 @@ class LstmRNN(object):
 
         self.logs_dir = logs_dir
         self.plots_dir = plots_dir
+        self.models_export_dir = models_dir
 
         self.build_graph()
 
@@ -338,6 +339,13 @@ class LstmRNN(object):
         return model_logs_dir
 
     @property
+    def models_dir(self):
+        models_dir = os.path.join(self.models_export_dir, self.model_name)
+        if not os.path.exists(models_dir):
+            os.makedirs(models_dir)
+        return models_dir
+
+    @property
     def model_plots_dir(self):
         model_plots_dir = os.path.join(self.plots_dir, self.model_name)
         if not os.path.exists(model_plots_dir):
@@ -354,8 +362,8 @@ class LstmRNN(object):
         )
 
     def export(self):
-        model_name = self.model_name + ".model"
-        export_path = os.path.join(self.model_logs_dir, model_name)
+        model_ver = str(int(time.time()))
+        export_path = os.path.join(self.models_dir, model_ver)
         if os.path.exists(export_path):
             shutil.rmtree(export_path)
 
