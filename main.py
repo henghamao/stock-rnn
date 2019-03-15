@@ -1,12 +1,17 @@
 import os
 import pandas as pd
 import pprint
-
+import grpc
+import sys
+import numpy
+import threading
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 from data_model import StockDataSet
 from model_rnn import LstmRNN
+from tensorflow_serving.apis import predict_pb2
+from tensorflow_serving.apis import prediction_service_pb2_grpc
 
 flags = tf.app.flags
 flags.DEFINE_integer("stock_count", 100, "Stock count [100]")
@@ -26,6 +31,7 @@ flags.DEFINE_string("stock_symbol", None, "Target stock symbol [None]")
 flags.DEFINE_integer("sample_size", 4, "Number of stocks to plot during training. [4]")
 flags.DEFINE_boolean("train", False, "True for training, False for testing [False]")
 flags.DEFINE_integer("train_threshold", 20, "The min sample size requirement to feed the training")
+flags.DEFINE_boolean("tf_server", False, "True for using tensorflow_serving on localhost to predict")
 
 FLAGS = flags.FLAGS
 
@@ -118,6 +124,97 @@ def load_sp500(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.0
                      test_ratio=0.05)
         for _, row in info.iterrows()]
 
+class _ResultCounter(object):
+  """Counter for the prediction results."""
+
+  def __init__(self, num_tests, concurrency):
+    self._num_tests = num_tests
+    self._concurrency = concurrency
+    self._done = 0
+    self._active = 0
+    self._error = 0
+    self._condition = threading.Condition()
+
+  def inc_error(self):
+    with self._condition:
+      self._error += 1
+
+  def inc_done(self):
+    with self._condition:
+      self._done += 1
+      self._condition.notify()
+
+  def dec_active(self):
+    with self._condition:
+      self._active -= 1
+      self._condition.notify()
+
+  def get_error_rate(self):
+    with self._condition:
+      while self._done != self._num_tests:
+        self._condition.wait()
+      return self._error / float(self._num_tests)
+
+  def throttle(self):
+    with self._condition:
+      while self._active == self._concurrency:
+        self._condition.wait()
+      self._active += 1
+
+def _create_rpc_callback(result_counter):
+  """Creates RPC callback function.
+
+  Args:
+    label: The correct label for the predicted example.
+    result_counter: Counter for the prediction result.
+  Returns:
+    The callback function.
+  """
+  def _callback(result_future):
+    """Callback function.
+
+    Calculates the statistics for the prediction result.
+
+    Args:
+      result_future: Result future of the RPC.
+    """
+    exception = result_future.exception()
+    if exception:
+      result_counter.inc_error()
+      print(exception)
+    else:
+      sys.stdout.write('.')
+      sys.stdout.flush()
+      response = numpy.array(
+          result_future.result().outputs['scores'].float_val)
+      print("Predict result:%s"%response)
+    result_counter.inc_done()
+    result_counter.dec_active()
+  return _callback
+
+def do_inference(stock_data_list, hostport='localhost:8500', concurrency=10):
+
+  channel = grpc.insecure_channel(hostport)
+  stub = prediction_service_pb2_grpc.PredictionServiceStub(
+
+
+      channel)
+  num_tests = len(stock_data_list)
+  result_counter = _ResultCounter(num_tests, concurrency)
+  print ("Total number of stocks to predict: %s."%num_tests)
+  for label, d_ in enumerate(stock_data_list):
+    request = predict_pb2.PredictRequest()
+    request.model_spec.name = 'stock_rnn_lstm128_step5_input4'
+    request.model_spec.signature_name = 'predict_images'
+    test_data = numpy.array(d_.predict_x)
+    request.inputs['images'].CopyFrom(
+        tf.contrib.util.make_tensor_proto(test_data[0], shape=[1, test_data[0].size]))
+    result_counter.throttle()
+    result_future = stub.Predict.future(request, 5.0)  # 5 seconds
+    result_future.add_done_callback(
+        _create_rpc_callback(result_counter))
+
+  return result_counter.get_error_rate()
 
 def main(_):
     pp.pprint(flags.FLAGS.__flags)
@@ -166,7 +263,11 @@ def main(_):
             if stock_data_list.__len__() == 0:
                 print ("No data to predict.")
                 exit(-1)
-            rnn_model.predict(stock_data_list, FLAGS)
+            if FLAGS.tf_server:
+                print("Submit requests to local tensorflow_serving.")
+                do_inference(stock_data_list)
+            else:
+                rnn_model.predict(stock_data_list, FLAGS)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,1 @@
+docker run -p 8501:8501 --mount type=bind,source="%cd%/models/stock_rnn_lstm128_step5_input4",target="/models/stock_rnn_lstm128_step5_input4" -e MODEL_NAME=stock_rnn_lstm128_step5_input4 -t tensorflow/serving
