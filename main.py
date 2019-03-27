@@ -1,17 +1,16 @@
 import os
 import pandas as pd
 import pprint
-import grpc
 import sys
-import numpy
+import numpy as np
 import threading
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-
+import requests
 from data_model import StockDataSet
 from model_rnn import LstmRNN
-from tensorflow_serving.apis import predict_pb2
-from tensorflow_serving.apis import prediction_service_pb2_grpc
+import urllib.request
+import json
 
 flags = tf.app.flags
 flags.DEFINE_integer("stock_count", 100, "Stock count [100]")
@@ -192,29 +191,34 @@ def _create_rpc_callback(result_counter):
     result_counter.dec_active()
   return _callback
 
-def do_inference(stock_data_list, hostport='localhost:8500', concurrency=10):
-
-  channel = grpc.insecure_channel(hostport)
-  stub = prediction_service_pb2_grpc.PredictionServiceStub(
-
-
-      channel)
-  num_tests = len(stock_data_list)
-  result_counter = _ResultCounter(num_tests, concurrency)
-  print ("Total number of stocks to predict: %s."%num_tests)
+def do_predict(stock_data_list):
+  total_time = 0
+  fail_cnt = 0
+  #SERVER_URL = 'http://localhost:8501/v1/models/half_plus_two:predict'
+  SERVER_URL = 'http://localhost:8501/v1/models/stock_rnn_lstm128_step5_input4:predict'
   for label, d_ in enumerate(stock_data_list):
-    request = predict_pb2.PredictRequest()
-    request.model_spec.name = 'stock_rnn_lstm128_step5_input4'
-    request.model_spec.signature_name = 'predict_images'
-    test_data = numpy.array(d_.predict_x)
-    request.inputs['images'].CopyFrom(
-        tf.contrib.util.make_tensor_proto(test_data[0], shape=[1, test_data[0].size]))
-    result_counter.throttle()
-    result_future = stub.Predict.future(request, 5.0)  # 5 seconds
-    result_future.add_done_callback(
-        _create_rpc_callback(result_counter))
-
-  return result_counter.get_error_rate()
+    merged_predict_X = np.array(d_.predict_x)
+    merged_predict_y = np.array(d_.predict_y)
+    predict_request = '{"inputs" : {"learning_rate":0, "keep_prob":1, ' \
+                      '"stock_labels":%s,' \
+                      '"inputs":%s,' \
+                      '"targets":%s}}'%(np.array([[label]]*len(merged_predict_X)).tolist(),
+                                        merged_predict_X.tolist(), merged_predict_y.tolist())
+    print(predict_request)
+    try:
+        response = requests.post(SERVER_URL, data=predict_request)
+        #response.raise_for_status()
+        total_time += response.elapsed.total_seconds()
+        prediction = response.json()['outputs'][0][0]
+        print("stock code:%s, predict raise:%f"%(d_.stock_sym,prediction))
+    except urllib.error.HTTPError:
+        print("HTTP ERROR:%s"%d_.stock_sym)
+        fail_cnt = fail_cnt + 1
+    except json.decoder.JSONDecodeError:
+        print("json decoder ERROR:%s"%d_.stock_sym)
+        fail_cnt = fail_cnt + 1
+  print('Total time elapsed for prediction:%s'%total_time.__str__())
+  print('Fail request counts:%s'%fail_cnt)
 
 def main(_):
     pp.pprint(flags.FLAGS.__flags)
@@ -265,7 +269,7 @@ def main(_):
                 exit(-1)
             if FLAGS.tf_server:
                 print("Submit requests to local tensorflow_serving.")
-                do_inference(stock_data_list)
+                do_predict(stock_data_list)
             else:
                 rnn_model.predict(stock_data_list, FLAGS)
 
