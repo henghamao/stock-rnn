@@ -123,79 +123,14 @@ def load_sp500(input_size, num_steps, k=None, target_symbol=None, test_ratio=0.0
                      test_ratio=0.05)
         for _, row in info.iterrows()]
 
-class _ResultCounter(object):
-  """Counter for the prediction results."""
-
-  def __init__(self, num_tests, concurrency):
-    self._num_tests = num_tests
-    self._concurrency = concurrency
-    self._done = 0
-    self._active = 0
-    self._error = 0
-    self._condition = threading.Condition()
-
-  def inc_error(self):
-    with self._condition:
-      self._error += 1
-
-  def inc_done(self):
-    with self._condition:
-      self._done += 1
-      self._condition.notify()
-
-  def dec_active(self):
-    with self._condition:
-      self._active -= 1
-      self._condition.notify()
-
-  def get_error_rate(self):
-    with self._condition:
-      while self._done != self._num_tests:
-        self._condition.wait()
-      return self._error / float(self._num_tests)
-
-  def throttle(self):
-    with self._condition:
-      while self._active == self._concurrency:
-        self._condition.wait()
-      self._active += 1
-
-def _create_rpc_callback(result_counter):
-  """Creates RPC callback function.
-
-  Args:
-    label: The correct label for the predicted example.
-    result_counter: Counter for the prediction result.
-  Returns:
-    The callback function.
-  """
-  def _callback(result_future):
-    """Callback function.
-
-    Calculates the statistics for the prediction result.
-
-    Args:
-      result_future: Result future of the RPC.
-    """
-    exception = result_future.exception()
-    if exception:
-      result_counter.inc_error()
-      print(exception)
-    else:
-      sys.stdout.write('.')
-      sys.stdout.flush()
-      response = numpy.array(
-          result_future.result().outputs['scores'].float_val)
-      print("Predict result:%s"%response)
-    result_counter.inc_done()
-    result_counter.dec_active()
-  return _callback
 
 def do_predict(stock_data_list):
   total_time = 0
   fail_cnt = 0
   #SERVER_URL = 'http://localhost:8501/v1/models/half_plus_two:predict'
   SERVER_URL = 'http://localhost:8501/v1/models/stock_rnn_lstm128_step5_input4:predict'
+  result = dict()
+
   for label, d_ in enumerate(stock_data_list):
     merged_predict_X = np.array(d_.predict_x)
     merged_predict_y = np.array(d_.predict_y)
@@ -204,21 +139,27 @@ def do_predict(stock_data_list):
                       '"inputs":%s,' \
                       '"targets":%s}}'%(np.array([[label]]*len(merged_predict_X)).tolist(),
                                         merged_predict_X.tolist(), merged_predict_y.tolist())
-    print(predict_request)
+    #print(predict_request)
     try:
         response = requests.post(SERVER_URL, data=predict_request)
         #response.raise_for_status()
         total_time += response.elapsed.total_seconds()
         prediction = response.json()['outputs'][0][0]
         print("stock code:%s, predict raise:%f"%(d_.stock_sym,prediction))
+        result[d_.stock_sym] = prediction
     except urllib.error.HTTPError:
         print("HTTP ERROR:%s"%d_.stock_sym)
         fail_cnt = fail_cnt + 1
     except json.decoder.JSONDecodeError:
         print("json decoder ERROR:%s"%d_.stock_sym)
         fail_cnt = fail_cnt + 1
+  print("----------------------------")
   print('Total time elapsed for prediction:%s'%total_time.__str__())
   print('Fail request counts:%s'%fail_cnt)
+  print("----------------------------")
+  # Choose top 10 results
+  for r in sorted(result.items(), key=lambda d: d[1], reverse=True)[0:10]:
+      print("stock code:%s, predict raise:%f" % (r[0], r[1]))
 
 def main(_):
     pp.pprint(flags.FLAGS.__flags)
