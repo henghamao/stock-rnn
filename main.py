@@ -1,9 +1,7 @@
 import os
 import pandas as pd
 import pprint
-import sys
 import numpy as np
-import threading
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import requests
@@ -11,6 +9,7 @@ from data_model import StockDataSet
 from model_rnn import LstmRNN
 import urllib.request
 import json
+import time
 
 flags = tf.app.flags
 flags.DEFINE_integer("stock_count", 100, "Stock count [100]")
@@ -130,6 +129,8 @@ def do_predict(stock_data_list):
   #SERVER_URL = 'http://localhost:8501/v1/models/half_plus_two:predict'
   SERVER_URL = 'http://localhost:8501/v1/models/stock_rnn_lstm128_step5_input4:predict'
   result = dict()
+  log_file= 'pred_' + time.strftime("%Y-%m-%d-%H-%M") + '.log'
+  fo = open(log_file,'w')
 
   for label, d_ in enumerate(stock_data_list):
     merged_predict_X = np.array(d_.predict_x)
@@ -146,6 +147,7 @@ def do_predict(stock_data_list):
         total_time += response.elapsed.total_seconds()
         prediction = response.json()['outputs'][0][0]
         print("stock code:%s, predict raise:%f"%(d_.stock_sym,prediction))
+        fo.write("stock code:%s, predict raise:%f\n" % (d_.stock_sym, prediction))
         result[d_.stock_sym] = prediction
     except urllib.error.HTTPError:
         print("HTTP ERROR:%s"%d_.stock_sym)
@@ -154,12 +156,18 @@ def do_predict(stock_data_list):
         print("json decoder ERROR:%s"%d_.stock_sym)
         fail_cnt = fail_cnt + 1
   print("----------------------------")
+  fo.write("----------------------------\n")
   print('Total time elapsed for prediction:%s'%total_time.__str__())
+  fo.write('Total time elapsed for prediction:%s sec\n' % total_time.__str__())
   print('Fail request counts:%s'%fail_cnt)
+  fo.write('Fail request counts:%s\n' % fail_cnt)
   print("----------------------------")
+  fo.write("----------------------------\n")
   # Choose top 10 results
   for r in sorted(result.items(), key=lambda d: d[1], reverse=True)[0:10]:
       print("stock code:%s, predict raise:%f" % (r[0], r[1]))
+      fo.write("stock code:%s, predict raise:%f\n" % (r[0], r[1]))
+  fo.close()
 
 def main(_):
     pp.pprint(flags.FLAGS.__flags)

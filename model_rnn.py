@@ -272,6 +272,7 @@ class LstmRNN(object):
         print (sample_indices)
 
         print ("Start training for stocks:", [d.stock_sym for d in dataset_list])
+        t1 = time.time()
         for epoch in range(config.max_epoch):
             epoch_step = 0
             learning_rate = config.init_learning_rate * (
@@ -311,12 +312,14 @@ class LstmRNN(object):
                         self.save(global_step)
 
         final_pred, final_loss = self.sess.run([self.pred, self.loss], test_data_feed)
+        t2 = time.time()
 
         # Save the final model
         self.save(global_step)
         self.export()
         print (final_pred)
         print (final_loss)
+        print ('Training elapsed time:%d sec' % (t2-t1))
         return final_pred
 
     @property
